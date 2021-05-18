@@ -267,7 +267,23 @@ class User_model extends Emerald_model {
      */
     public function add_money(float $sum): bool
     {
-        //TODO добавление денег
+        try {
+
+            App::get_s()->start_trans();
+
+            // TODO добавить создание модели транзакции
+
+            // TODO CI_Emerald_Model если было унаследована модель от этого класса то можно было б вызвать FOR UPDATE для модель пользователя чтобы избежать возможных конфликтов
+            $this->set_wallet_balance($this->get_wallet_balance() + $sum);
+            $this->set_wallet_total_refilled($this->get_wallet_total_refilled() + $sum);
+
+            App::get_s()->commit();
+
+        } catch (\Exception $e) {
+            \App::get_s()->rollback();
+            // TODO можно в какой-то логгер запихнуть
+            throw $e;
+        }
 
         return TRUE;
     }
@@ -342,11 +358,17 @@ class User_model extends Emerald_model {
     /**
      * @param string $email
      *
-     * @return User_model
+     * @return User_model|null
      */
-    public static function find_user_by_email(string $email): User_model
+    public static function find_user_by_email(string $email): ?User_model
     {
-        //TODO
+        $result = App::get_s()->from(self::CLASS_TABLE)->where(['email' => $email])->select()->one();
+
+        if (!$result) {
+            return null;
+        }
+
+        return self::transform_one($result);
     }
 
     /**
