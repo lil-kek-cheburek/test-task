@@ -39,11 +39,8 @@ class Like_model extends CI_Model
 
         try {
             \App::get_s()->start_trans();
-
             $user_model->set_likes_balance($user_model->get_likes_balance() - 1);
-
             $model->set_likes($model->get_likes() + 1);
-
             \App::get_s()->commit();
         } catch (\Exception $e) {
             \App::get_s()->rollback();

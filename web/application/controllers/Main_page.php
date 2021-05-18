@@ -53,7 +53,7 @@ class Main_page extends MY_Controller
             return $this->response_error(sprintf('Post with id = %s not found!', $post_id));
         }
 
-        return $this->response_success(['post' => Post_model::preparation(new Post_model($post_id))]);
+        return $this->response_success(['post' => Post_model::preparation($post)]);
     }
 
 
@@ -64,33 +64,31 @@ class Main_page extends MY_Controller
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
-        $body = $this->input->post();
+        $postId = $this->input->post('postId');
 
         $commentData = [
-            'assign_id' => $body['postId'],
-            'text' => $body['commentText'],
+            'assign_id' => $postId,
+            'text' => $this->input->post('commentText'),
             'user_id' => User_model::get_user()->get_id()
         ];
 
         try {
             $post = new Post_model();
-            $post->set_id($body['postId']);
+            $post->set_id($postId);
         } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
-            return $this->response_error(sprintf('Post with id = %s not found!', $body['postId']));
+            return $this->response_error(sprintf('Post with id = %s not found!', $postId));
         }
 
-        $body['replyId'] = 1;
-
-        if (isset($body['replyId']))
+        if (!($replyId = $this->input->post('replyId')))
         {
             try {
                 $comment = new \Model\Comment_model();
-                $comment->set_id($body['replyId']);
+                $comment->set_id($replyId);
             } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
-                return $this->response_error(sprintf('Comment with id = %s not found!', $body['replyId']));
+                return $this->response_error(sprintf('Comment with id = %s not found!', $replyId));
             }
 
-            $commentData = array_merge($commentData, ['reply_id' => $body['replyId']]);
+            $commentData = array_merge($commentData, ['reply_id' => $replyId]);
         }
 
         \Model\Comment_model::create($commentData); // TODO можно обернуть в эксепшен
