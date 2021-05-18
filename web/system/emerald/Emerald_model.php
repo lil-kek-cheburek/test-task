@@ -58,7 +58,7 @@ class Emerald_model {
     /**
      * @param null $id
      * @return $this
-     * @throws ShadowIgniterException
+     * @throws ShadowIgniterException|EmeraldModelNoDataException
      */
     public function set_id($id = NULL)
     {

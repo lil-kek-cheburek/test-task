@@ -3,6 +3,7 @@
 use Model\Boosterpack_model;
 use Model\Post_model;
 use Model\User_model;
+use System\Emerald\Exception\EmeraldModelNoDataException;
 
 /**
  * Created by PhpStorm.
@@ -43,26 +44,71 @@ class Main_page extends MY_Controller
         return $this->response_success(['boosterpacks' => $posts]);
     }
 
-    public function get_post(int $post_id){
+    public function get_post(int $post_id)
+    {
+        try {
+            $post = new Post_model();
+            $post->set_id($post_id);
+        } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
+            return $this->response_error(sprintf('Post with id = %s not found!', $post_id));
+        }
 
-        //TODO получения поста по id
+        return $this->response_success(['post' => Post_model::preparation($post)]);
     }
 
 
-    public function comment(){
-
+    public function comment()
+    {
         if ( ! User_model::is_logged())
         {
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
-        //TODO логика комментирования поста
+        $postId = $this->input->post('postId');
+
+        $commentData = [
+            'assign_id' => $postId,
+            'text' => $this->input->post('commentText'),
+            'user_id' => User_model::get_user()->get_id()
+        ];
+
+        try {
+            $post = new Post_model();
+            $post->set_id($postId);
+        } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
+            return $this->response_error(sprintf('Post with id = %s not found!', $postId));
+        }
+
+        if (!($replyId = $this->input->post('replyId')))
+        {
+            try {
+                $comment = new \Model\Comment_model();
+                $comment->set_id($replyId);
+            } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
+                return $this->response_error(sprintf('Comment with id = %s not found!', $replyId));
+            }
+
+            $commentData = array_merge($commentData, ['reply_id' => $replyId]);
+        }
+
+        \Model\Comment_model::create($commentData); // TODO можно обернуть в эксепшен
+
+        return $this->response_success(['status' => 'created']);
     }
 
 
     public function login()
     {
-        //TODO
+        if (!($login = $this->input->post('login')) || !($password = $this->input->post('password')))
+        {
+            return $this->response_error('Missing or invalid require parameters');
+        }
+
+        try {
+            \Model\Login_model::login((string)$login, (string)$password);
+        } catch (Exception $e) {
+            return $this->response_error($e->getMessage());
+        }
 
         return $this->response_success();
     }
@@ -70,7 +116,14 @@ class Main_page extends MY_Controller
 
     public function logout()
     {
-        //TODO
+        if ( ! User_model::is_logged())
+        {
+            $this->go_back();
+        }
+
+        \Model\Login_model::logout();
+
+        $this->go_back();
     }
 
     public function add_money(){
@@ -81,7 +134,19 @@ class Main_page extends MY_Controller
 
         $sum = (float)App::get_ci()->input->post('sum');
 
-        //TODO логика добавления денег
+        if ($sum < 0)
+        {
+            return $this->response_error('Sum should be more then 0');
+
+        }
+
+        try {
+            User_model::get_user()->add_money($sum);
+        } catch (ShadowIgniterException $e) {
+            return $this->response_error('Ups! Something went wrong!');
+        }
+
+        return $this->response_success(['status' => 'money added']);
     }
 
     public function buy_boosterpack()
@@ -108,7 +173,20 @@ class Main_page extends MY_Controller
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
-        //TODO логика like comment(remove like у юзерa, добавить лай к комменту)
+        try {
+            $comment = new \Model\Comment_model();
+            $comment->set_id($comment_id);
+        } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
+            return $this->response_error(sprintf('Comment with id = %s not found!', $comment_id));
+        }
+
+        try {
+            \Model\Like_model::likeComment(User_model::get_user(), $comment);
+        } catch (Exception $e) {
+            return $this->response_error($e->getMessage());
+        }
+
+        return $this->response_success(['status' => 'success']);
     }
 
     /**
@@ -124,7 +202,20 @@ class Main_page extends MY_Controller
             return $this->response_error(System\Libraries\Core::RESPONSE_GENERIC_NEED_AUTH);
         }
 
-        //TODO логика like post(remove like у юзерa, добавить лай к посту)
+        try {
+            $post = new Post_model();
+            $post->set_id($post_id);
+        } catch (ShadowIgniterException|EmeraldModelNoDataException $e) {
+            return $this->response_error(sprintf('Post with id = %s not found!', $post_id));
+        }
+
+        try {
+            \Model\Like_model::likePost(User_model::get_user(), $post);
+        } catch (Exception $e) {
+            return $this->response_error($e->getMessage());
+        }
+
+        return $this->response_success(['status' => 'success']);
     }
 
 
@@ -142,4 +233,14 @@ class Main_page extends MY_Controller
 
         //TODO получить содержимое бустерпак
     }
+
+    public function go_back()
+    {
+        $url = App::get_ci()->agent->referer ?? "/";
+
+        header("Location: {$url}");
+        exit();
+    }
+
+
 }

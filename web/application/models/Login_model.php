@@ -20,14 +20,28 @@ class Login_model extends CI_Model {
     }
 
     /**
+     * @param string $login
+     * @param string $password
      * @return User_model
      * @throws Exception
      */
-    public static function login(): User_model
+    public static function login(string $login, string $password): User_model
     {
-        //TODO
+        $user_model = User_model::find_user_by_email($login);
 
-        self::start_session();
+        if (!$user_model)
+        {
+            throw new Exception("User not found");
+        }
+
+        if ($password !== $user_model->get_password())
+        {
+            throw new Exception("Incorrect password");
+        }
+
+        self::start_session($user_model->get_id());
+
+        return $user_model;
     }
 
     public static function start_session(int $user_id)
@@ -39,5 +53,6 @@ class Login_model extends CI_Model {
         }
 
         App::get_ci()->session->set_userdata('id', $user_id);
+
     }
 }
